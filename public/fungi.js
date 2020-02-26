@@ -10,11 +10,25 @@ function initData (size) {
 }
 
 let procId = 0
+let drawRelative = false
+let running = true
+
+function pause () {
+    running = !running
+    console.log(running ? "Played" : "Paused")
+    $('#toggleBtn').prop("disabled", !running)
+}
 
 function stop () {
     clearInterval(procId)
     console.log("stopped")
     $('#stopBtn').prop("disabled", true)
+    $('#pauseBtn').prop("disabled", true)
+    $('#toggleBtn').prop("disabled", true)
+}
+
+function toggleRelative () {
+    drawRelative = !drawRelative
 }
 
 function findDiffs (oldData, newData) {
@@ -40,12 +54,105 @@ function cloneData (oldData) {
     return newData
 }
 
-$(document).ready(() => {
+function fungiInit () {
 
+    stop()
+    let stepNum = 0
+    $("#controls").css("display", "inline-block")
+    $('#stopBtn').prop("disabled", false)
+    $('#pauseBtn').prop("disabled", false)
+    $('#toggleBtn').prop("disabled", false)
+    const size = parseInt($('#size').val())
+    const zoom = parseInt($('#zoom').val())
+    console.log("Initializing with size " + size + " and zoom " + zoom)
     const canvas = $("#canvas")[0];
-    const ctx = canvas.getContext("2d");
-    let size = 400
+    const ctx = canvas.getContext("2d")
+    ctx.canvas.width = size * zoom
+    ctx.canvas.height = size * zoom
     let data = initData(size)
+
+    // GRAPH
+    const gCanvas = $("#graph")[0]
+    const gCtx = gCanvas.getContext('2d')
+    let chart = null
+    if ($('#displayStats').is(":checked")) {
+        chart = new Chart(gCtx, {
+            // The type of chart we want to create
+            type: 'line',
+        
+            // The data for our dataset
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Cell population',
+                    fill:false,
+                    backgroundColor: 'rgb(255, 99, 132)',
+                    borderColor: 'rgb(255, 99, 132)',
+                    data: [],
+                    lineTension: 0,
+                    yAxisID: 'y-axis-1'
+                },
+                {
+                    label: 'Food count',
+                    fill:false,
+                    steppedLine: true,
+                    backgroundColor: 'blue',
+                    borderColor: 'blue',
+                    data: [],
+                    yAxisID: 'y-axis-2'
+                }]
+            },
+        
+            // Configuration options go here
+            options: {
+                responsive: true,
+                hoverMode: 'index',
+                stacked: false,
+                title: {
+                    display: true,
+                    text: 'Simulation stats'
+                },
+                scales: {
+                    yAxes: [{
+                        type: 'linear', // only linear but allow scale type registration. This allows extensions to exist solely for log scale for instance
+                        display: true,
+                        position: 'left',
+                        id: 'y-axis-1',
+                    }, {
+                        type: 'linear', // only linear but allow scale type registration. This allows extensions to exist solely for log scale for instance
+                        display: true,
+                        position: 'right',
+                        id: 'y-axis-2',
+    
+                        // grid line settings
+                        gridLines: {
+                            drawOnChartArea: false, // only want the grid lines for one axis to show up
+                        },
+                    }],
+                }
+            }
+        });
+    } else {
+        gCtx.clearRect(0, 0, gCanvas.width, gCanvas.height);
+    }
+
+    function updateChart (fungiCount, foodCount) {
+        if (!chart)
+            return
+        chart.data.labels.push(stepNum);
+        chart.data.datasets[0].data.push(fungiCount)
+        chart.data.datasets[1].data.push(foodCount)
+        chart.update()
+    }
+
+    function updateChartBulk (labels, popData, foodData) {
+        if (!chart)
+            return
+        chart.data.labels = labels
+        chart.data.datasets[0].data = popData
+        chart.data.datasets[1].data = foodData
+        chart.update()
+    }
 
     /*
     TYPES:
@@ -77,12 +184,15 @@ $(document).ready(() => {
                 break
         }
         ctx.fillStyle = "rgb(" + color[0] + "," + color[1] + "," + color[2] + ")"
-        ctx.fillRect(i, j, 1, 1)
+        ctx.fillRect(i * zoom, j * zoom, zoom, zoom)
     }
 
     const fungiDensity = 0.001
     const foodDensity = 0.001
     const obstacleDensity = 0.002
+    const fungiStartVal = 5
+
+    let startFoodCount = 0
 
     for (let i = 0; i < size; i ++) {
         for (let j = 0; j < size; j ++) {
@@ -90,10 +200,12 @@ $(document).ready(() => {
             const isFood = Math.random() < foodDensity
             const isObstacle = Math.random() < obstacleDensity
             data[i][j][1] = isObstacle ? 2 : isFood ? 1 : 0
+            if (data[i][j][1] === 1)
+                startFoodCount++
             if (data[i][j][1] !== 0) {
                 data[i][j][0] = 1
             } else if (isFungi) {
-                data[i][j][0] = 1
+                data[i][j][0] = fungiStartVal
             }
         }
     }
@@ -120,36 +232,92 @@ $(document).ready(() => {
         return cells
     }
 
+    const foodDecay = 0.001
+    const foodSupply = 0.5
+    const spreadValue = 0.5
+    const spreadProb = 0.2
+    const spreadThreshold = 0.1
+
+    let fungiCount = 0
+    let foodCount = 0
+
     function sim (oldData) {
         let newData = cloneData(oldData)
+        fungiCount = 0
+        foodCount = 0
         for (let i = 0; i < size; i ++) {
             for (let j = 0; j < size; j ++) {
                 const value = oldData[i][j][0]
                 const type = oldData[i][j][1]
                 if (type === 0 && value > 0) {
+                    newData[i][j][0] -= foodDecay
                     adjFungi = findAdjCells(i, j, oldData)
                     for (let k = 0; k < adjFungi.length; k ++) {
-                        //console.log("Making an update...")
-                        const coord = adjFungi[k]
-                        const cell = oldData[coord[0]][coord[1]]
-                        if (cell[0] < 1 && cell[1] === 0) {
-                            newData[cell[0]][cell[1]][0] += 1 / 8
-                            newData[i][j][0] -= 1 / 8
+                        let cur = adjFungi[k]
+                        let oldCell = oldData[cur[0]][cur[1]]
+                        if (oldCell[1] == 1) {
+                            newData[cur[0]][cur[1]][0] = 2
+                            newData[i][j][0] += foodSupply
                         }
                     }
+                    let cellDat = null
+                    let curDat = oldData[i][j]
+                    let cell = null
+                    if (Math.random() < value) {
+                        function assign () {
+                            let x = Math.round(Math.random() * 2) - 1
+                            let y = Math.round(Math.random() * 2) - 1
+                            if (i+x < size && j+y < size && i+x > 0 && j+y > 0) {
+                                cellDat = oldData[i+x][j+y]
+                                cell = [i+x, j+y]
+                            }
+                        }
+                        while(cellDat === null)
+                            assign()
+                        let loopCount = 9
+                        while (cellDat[1] !== 0 && ((cellDat[0] < curDat[0] && cellDat[0] !== 0) || (cellDat[0] > curDat[0])) && loopCount > 0) {
+                            assign()
+                            while(cellDat === null)
+                                assign()
+                            loopCount--;
+                        }
+                        if (loopCount <= 0)
+                            cellDat = null
+                    }
+                    if (cellDat) {
+                        const toSpread = newData[i][j][0] * spreadValue 
+                        newData[cell[0]][cell[1]][0] += toSpread
+                        newData[i][j][0] -= toSpread
+                    }
+                } else if (type === 0 && value < 0) {
+                    newData[i][j][0] = 0
                 }
+                if (newData[i][j][0] > 0 && newData[i][j][1] === 0)
+                    fungiCount++
+                if (newData[i][j][0] === 1 && newData[i][j][1] === 1)
+                    foodCount++
             }
         }
+        stepNum++
         return newData
     }
 
     function step () {
-        let newData = sim(data)
-        drawAll(newData, true)
-        console.log("Stepped")
-        //diffs = findDiffs(data, newData)
-        //console.log(diffs)
-        data = newData
+        if (running) {
+            let newData = sim(data)
+            drawAll(newData, drawRelative)
+            console.log("Stepped")
+            //diffs = findDiffs(data, newData)
+            //console.log(diffs)
+            data = newData
+            updateChart(fungiCount, foodCount)
+            if (fungiCount === 0) {
+                console.log('All cells dead!')
+                alert("All cells died! Simulation stopped")
+                stop()
+            }
+            $('#fungiCount').html(fungiCount + " cells remaining, " + foodCount + " food remaining")
+        }
     }
 
     function start () {
@@ -159,4 +327,4 @@ $(document).ready(() => {
 
     setTimeout(start, 1000)
 
-})
+}

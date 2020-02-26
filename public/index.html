@@ -2,11 +2,23 @@
 <html>
     <head>
         <script src="/jquery.js" type="text/javascript"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0"></script>
         <script src="/fungi.js" type="text/javascript"></script>
     </head>
     <body>
+        Size: <input type="number" id="size"/>
+        Zoom: <input type="number" id="zoom"/>
+        Show stats: <input type="checkbox" id="displayStats">
+        <button id="initBtn" onclick="fungiInit()">Init sim</button><br/><hr/>
         <canvas id="canvas" width="400" height="400" style="border:3px solid grey;"></canvas>
         <br/>
-        <button id="stopBtn" onclick="stop()">Stop sim</button>
+        <p id="fungiCount"></p>
+        <br/>
+        <div id="controls" style="display:none">
+            <button id="pauseBtn" onclick="pause()">Pause/play sim</button>
+            <button id="stopBtn" onclick="stop()">Stop sim</button>
+            <button id="toggleBtn" onclick="toggleRelative()">Toggle relative display</button>
+        </div><br/>
+        <canvas id="graph" width="400" height="400"></canvas>
     </body>
 </html>
