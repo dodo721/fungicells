@@ -1,15 +1,3 @@
-<<<<<<< HEAD
-# Fungi Cells Procedural Generation Experiment
-
-The aim of this javascript experiment is to simulate fungi/plant mould cells growing out to find food
-and create food channels to share food with.
-
-It runs entirely in the browser with simple jQuery, but is served from a Node.JS express server.
-
-## Author
-
-Ben Durkin
-=======
 # Fungi Cells Javascript Simulation
 
 The aim of this project is to simulate plant mould/fungi cells growing and searching for food in a 2d environment.
@@ -29,4 +17,3 @@ Browser app files:
 - index.html
 - jQuery.js
 - fungi.js <-- The simulation code itself
->>>>>>> 96b3dd9fad0ff9c055787993ff2dbf894a430f76
