@@ -10,6 +10,10 @@ Ben Durkin (dodo721)
 
 ## Project structure
 
+Node server files:
+- index.js
+
+Browser app files:
 - index.html
 - jQuery.js
 - fungi.js <-- The simulation code itself
