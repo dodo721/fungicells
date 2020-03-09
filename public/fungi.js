@@ -12,6 +12,12 @@ function initData (size) {
 let procId = 0
 let drawRelative = false
 let running = true
+let curChart = null
+let bulkStat = false
+let fungiData = []
+let foodData = []
+let labels = []
+let gCtx = null
 
 function pause () {
     running = !running
@@ -19,8 +25,75 @@ function pause () {
     $('#toggleBtn').prop("disabled", !running)
 }
 
+function initGraph (gCtx) {
+    chart = new Chart(gCtx, {
+        // The type of chart we want to create
+        type: 'line',
+    
+        // The data for our dataset
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Cell population',
+                fill:false,
+                backgroundColor: 'rgb(255, 99, 132)',
+                borderColor: 'rgb(255, 99, 132)',
+                data: [],
+                lineTension: 0,
+                yAxisID: 'y-axis-1'
+            },
+            {
+                label: 'Food count',
+                fill:false,
+                steppedLine: true,
+                backgroundColor: 'blue',
+                borderColor: 'blue',
+                data: [],
+                yAxisID: 'y-axis-2'
+            }]
+        },
+    
+        // Configuration options go here
+        options: {
+            responsive: true,
+            hoverMode: 'index',
+            stacked: false,
+            title: {
+                display: true,
+                text: 'Simulation stats'
+            },
+            scales: {
+                yAxes: [{
+                    type: 'linear', // only linear but allow scale type registration. This allows extensions to exist solely for log scale for instance
+                    display: true,
+                    position: 'left',
+                    id: 'y-axis-1',
+                }, {
+                    type: 'linear', // only linear but allow scale type registration. This allows extensions to exist solely for log scale for instance
+                    display: true,
+                    position: 'right',
+                    id: 'y-axis-2',
+
+                    // grid line settings
+                    gridLines: {
+                        drawOnChartArea: false, // only want the grid lines for one axis to show up
+                    },
+                }],
+            }
+        }
+    });
+    return chart;
+}
+
 function stop () {
     clearInterval(procId)
+    if (bulkStat) {
+        curChart = initGraph(gCtx)
+        curChart.data.labels = labels
+        curChart.data.datasets[0].data = fungiData
+        curChart.data.datasets[1].data = foodData
+        curChart.update()
+    }
     console.log("stopped")
     $('#stopBtn').prop("disabled", true)
     $('#pauseBtn').prop("disabled", true)
@@ -55,7 +128,9 @@ function cloneData (oldData) {
 }
 
 function fungiInit () {
-
+    if (curChart)
+        curChart.destroy()
+    bulkStat = false
     stop()
     let stepNum = 0
     $("#controls").css("display", "inline-block")
@@ -73,85 +148,24 @@ function fungiInit () {
 
     // GRAPH
     const gCanvas = $("#graph")[0]
-    const gCtx = gCanvas.getContext('2d')
-    let chart = null
-    if ($('#displayStats').is(":checked")) {
-        chart = new Chart(gCtx, {
-            // The type of chart we want to create
-            type: 'line',
-        
-            // The data for our dataset
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Cell population',
-                    fill:false,
-                    backgroundColor: 'rgb(255, 99, 132)',
-                    borderColor: 'rgb(255, 99, 132)',
-                    data: [],
-                    lineTension: 0,
-                    yAxisID: 'y-axis-1'
-                },
-                {
-                    label: 'Food count',
-                    fill:false,
-                    steppedLine: true,
-                    backgroundColor: 'blue',
-                    borderColor: 'blue',
-                    data: [],
-                    yAxisID: 'y-axis-2'
-                }]
-            },
-        
-            // Configuration options go here
-            options: {
-                responsive: true,
-                hoverMode: 'index',
-                stacked: false,
-                title: {
-                    display: true,
-                    text: 'Simulation stats'
-                },
-                scales: {
-                    yAxes: [{
-                        type: 'linear', // only linear but allow scale type registration. This allows extensions to exist solely for log scale for instance
-                        display: true,
-                        position: 'left',
-                        id: 'y-axis-1',
-                    }, {
-                        type: 'linear', // only linear but allow scale type registration. This allows extensions to exist solely for log scale for instance
-                        display: true,
-                        position: 'right',
-                        id: 'y-axis-2',
-    
-                        // grid line settings
-                        gridLines: {
-                            drawOnChartArea: false, // only want the grid lines for one axis to show up
-                        },
-                    }],
-                }
-            }
-        });
-    } else {
-        gCtx.clearRect(0, 0, gCanvas.width, gCanvas.height);
-    }
+    gCtx = gCanvas.getContext('2d')
+    bulkStat = !($('#displayStats').is(":checked"))
+    let chart = bulkStat ? null : initGraph(gCtx)
+    curChart = chart
+    labels = []
+    fungiData = []
+    foodData = []
 
     function updateChart (fungiCount, foodCount) {
-        if (!chart)
-            return
-        chart.data.labels.push(stepNum);
-        chart.data.datasets[0].data.push(fungiCount)
-        chart.data.datasets[1].data.push(foodCount)
-        chart.update()
-    }
-
-    function updateChartBulk (labels, popData, foodData) {
-        if (!chart)
-            return
-        chart.data.labels = labels
-        chart.data.datasets[0].data = popData
-        chart.data.datasets[1].data = foodData
-        chart.update()
+        labels.push(stepNum)
+        fungiData.push(fungiCount)
+        foodData.push(foodCount)
+        if (chart) {
+            chart.data.labels = labels
+            chart.data.datasets[0].data = fungiData
+            chart.data.datasets[1].data = foodData
+            chart.update()
+        }
     }
 
     /*
@@ -168,7 +182,7 @@ function fungiInit () {
             }
         }
     }
-
+     
     function draw (i, j, data, ignoreValue) {
         let color = []
         let value = ignoreValue ? data[i][j][0] === 0 ? 0 : 255 : data[i][j][0] * 255
@@ -237,7 +251,8 @@ function fungiInit () {
     const spreadValue = 0.5
     const spreadProb = 0.2
     const spreadThreshold = 0.1
-
+            //diffs = findDiffs(data, newData)
+            //console.log(diffs)
     let fungiCount = 0
     let foodCount = 0
 
@@ -306,15 +321,12 @@ function fungiInit () {
         if (running) {
             let newData = sim(data)
             drawAll(newData, drawRelative)
-            console.log("Stepped")
-            //diffs = findDiffs(data, newData)
-            //console.log(diffs)
             data = newData
             updateChart(fungiCount, foodCount)
             if (fungiCount === 0) {
                 console.log('All cells dead!')
                 alert("All cells died! Simulation stopped")
-                stop()
+                stop(gCtx)
             }
             $('#fungiCount').html(fungiCount + " cells remaining, " + foodCount + " food remaining")
         }
