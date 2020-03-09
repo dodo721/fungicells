@@ -73,7 +73,9 @@ function initGraph (gCtx) {
                     display: true,
                     position: 'right',
                     id: 'y-axis-2',
-
+                    ticks: {
+                        beginAtZero: true
+                    },
                     // grid line settings
                     gridLines: {
                         drawOnChartArea: false, // only want the grid lines for one axis to show up
