@@ -8,7 +8,7 @@ The javascript simulation runs in-browser with jQuery, served with a Node.JS Exp
 
 ## Author
 
-Ben Durkin (dodo721)
+Vera Durkin (dodo721)
 
 ## Project structure
 
